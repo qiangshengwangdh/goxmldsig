@@ -331,7 +331,7 @@ func genCertificateTags(ctx *SigningContext, x509Data *etree.Element, certificat
 			x509IssuerSerial = ctx.createNamespacedElement(x509Data, X509IssuerSerialTag)
 		}
 		x509SerialNumber := ctx.createNamespacedElement(x509IssuerSerial, X509SerialNumberTag)
-		x509SerialNumber.SetText(fmt.Sprintf("%x", cert.SerialNumber))
+		x509SerialNumber.SetText(fmt.Sprintf("%0*x", 32, cert.SerialNumber))
 	}
 
 	return nil
