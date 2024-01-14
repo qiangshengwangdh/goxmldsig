@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/beevik/etree"
@@ -39,6 +40,9 @@ func testSignWithContext(t *testing.T, ctx *SigningContext, sigMethodID string, 
 	digest := hash.Sum(nil)
 
 	signed, err := ctx.SignEnveloped(authnRequest)
+	te := signed.Text()
+	fmt.Println(te)
+
 	require.NoError(t, err)
 	require.NotEmpty(t, signed)
 
@@ -89,6 +93,7 @@ func testSignWithContext(t *testing.T, ctx *SigningContext, sigMethodID string, 
 	digestValueElement := referenceElement.FindElement("//" + DigestValueTag)
 	require.NotEmpty(t, digestValueElement)
 	require.Equal(t, base64.StdEncoding.EncodeToString(digest), digestValueElement.Text())
+
 }
 
 func TestSignErrors(t *testing.T) {
