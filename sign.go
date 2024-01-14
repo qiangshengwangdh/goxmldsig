@@ -8,6 +8,7 @@ import (
 	_ "crypto/sha1"
 	_ "crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -276,12 +277,64 @@ func (ctx *SigningContext) ConstructSignature(el *etree.Element, enveloped bool)
 
 	keyInfo := ctx.createNamespacedElement(sig, KeyInfoTag)
 	x509Data := ctx.createNamespacedElement(keyInfo, X509DataTag)
+
 	for _, cert := range certs {
+		genCertificateTags(ctx, x509Data, cert)
 		x509Certificate := ctx.createNamespacedElement(x509Data, X509CertificateTag)
 		x509Certificate.SetText(base64.StdEncoding.EncodeToString(cert))
 	}
 
 	return sig, nil
+}
+
+// mapOIDToString maps Object Identifiers (OIDs) to short strings
+var mapOIDToString = map[string]string{
+	"2.5.4.3":  "CN", // Common Name
+	"2.5.4.6":  "C",  // Country Name
+	"2.5.4.7":  "L",  // Locality Name
+	"2.5.4.8":  "ST", // State or Province Name
+	"2.5.4.10": "O",  // Organization Name
+	"2.5.4.11": "OU", // Organizational Unit Name
+	// Add more mappings as needed
+}
+
+// OIDToString converts an asn1.ObjectIdentifier to a short string representation
+func OIDToString(oid asn1.ObjectIdentifier) string {
+	oidString := ""
+	for _, component := range oid {
+
+		oidString += fmt.Sprintf("%d.", component)
+
+	}
+	return mapOIDToString[oidString[:len(oidString)-1]] // Remove trailing dot
+}
+
+func genCertificateTags(ctx *SigningContext, x509Data *etree.Element, certificate []byte) error {
+	cert, err := x509.ParseCertificate(certificate)
+	if err != nil {
+		return err
+	}
+
+	var x509IssuerSerial *etree.Element
+	issuerName := ""
+	for _, name := range cert.Subject.Names {
+		issuerName = issuerName + OIDToString(name.Type) + "=" + name.Value.(string) + ","
+	}
+	if issuerName != "" {
+		x509IssuerSerial = ctx.createNamespacedElement(x509Data, X509IssuerSerialTag)
+		x509IssuerName := ctx.createNamespacedElement(x509IssuerSerial, X509IssuerNameTag)
+		x509IssuerName.SetText(issuerName[:len(issuerName)-1])
+	}
+
+	if cert.SerialNumber.BitLen() != 0 {
+		if x509IssuerSerial == nil {
+			x509IssuerSerial = ctx.createNamespacedElement(x509Data, X509IssuerSerialTag)
+		}
+		x509SerialNumber := ctx.createNamespacedElement(x509IssuerSerial, X509SerialNumberTag)
+		x509SerialNumber.SetText(fmt.Sprintf("%x", cert.SerialNumber))
+	}
+
+	return nil
 }
 
 func (ctx *SigningContext) createNamespacedElement(el *etree.Element, tag string) *etree.Element {
